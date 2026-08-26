@@ -7,7 +7,7 @@ from openai import OpenAI
 app = Flask(__name__)
 
 # ==========================================
-# 🔑 ZONA DE CLAVES API (Reemplazar con tus datos)
+# 🔑 ZONA DE CLAVES API
 # ==========================================
 OPENAI_API_KEY = "sk-TU_CLAVE_DE_OPENAI_AQUI"
 # ==========================================
@@ -15,42 +15,41 @@ OPENAI_API_KEY = "sk-TU_CLAVE_DE_OPENAI_AQUI"
 def init_db():
     conn = sqlite3.connect('pancanela.db')
     cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS caja (id INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT, tipo TEXT, descripcion TEXT, monto REAL)''')
+    
+    # Tabla caja con campo 'metodo' (Efectivo / Transferencia)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS caja (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        fecha TEXT, 
+        tipo TEXT, 
+        descripcion TEXT, 
+        monto REAL,
+        metodo TEXT
+    )''')
+    
+    # Tabla para control de jornadas (Abrir / Cerrar día)
+    cursor.execute('''CREATE TABLE IF NOT EXISTS jornadas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT,
+        estado TEXT,
+        efectivo_ventas REAL,
+        transferencia_ventas REAL,
+        total_gastos REAL
+    )''')
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS redes (id INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT, plataforma TEXT, seguidores INTEGER, interaccion REAL)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS stock (id INTEGER PRIMARY KEY AUTOINCREMENT, insumo TEXT, cantidad REAL, unidad TEXT, minimo REAL)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS recetas (id INTEGER PRIMARY KEY AUTOINCREMENT, producto TEXT, costo_produccion REAL, precio_venta REAL)''')
     
-    cursor.execute('DROP TABLE IF EXISTS benchmarking_videos')
-    cursor.execute('''CREATE TABLE benchmarking_videos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        tipo TEXT, 
-        plataforma TEXT, 
-        creador TEXT, 
-        titulo_concepto TEXT, 
-        visualizaciones INTEGER, 
-        analisis_rendimiento TEXT,
-        link_video TEXT
-    )''')
-    
     cursor.execute("SELECT COUNT(*) FROM caja")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto) VALUES ('2026-08-20', 'Ingreso', 'Venta mostrador', 15000)")
-        cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto) VALUES ('2026-08-21', 'Ingreso', 'Pedidos WhatsApp', 22000)")
-        cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto) VALUES ('2026-08-22', 'Gasto', 'Harina y grasa', 8000)")
+        cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto, metodo) VALUES ('2026-08-20', 'Ingreso', 'Venta mostrador', 15000, 'Efectivo')")
+        cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto, metodo) VALUES ('2026-08-21', 'Ingreso', 'Pedidos WhatsApp', 22000, 'Transferencia')")
+        cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto, metodo) VALUES ('2026-08-22', 'Gasto', 'Harina y grasa', 8000, 'Efectivo')")
         cursor.execute("INSERT INTO redes (fecha, plataforma, seguidores, interaccion) VALUES ('2026-08-20', 'Instagram', 1200, 5.2)")
         cursor.execute("INSERT INTO redes (fecha, plataforma, seguidores, interaccion) VALUES ('2026-08-21', 'Instagram', 1250, 6.1)")
-        cursor.execute("INSERT INTO redes (fecha, plataforma, seguidores, interaccion) VALUES ('2026-08-22', 'TikTok', 800, 8.5)")
         cursor.execute("INSERT INTO stock (insumo, cantidad, unidad, minimo) VALUES ('Harina 000', 50, 'kg', 10)")
         cursor.execute("INSERT INTO stock (insumo, cantidad, unidad, minimo) VALUES ('Grasa bovina', 15, 'kg', 5)")
-        cursor.execute("INSERT INTO stock (insumo, cantidad, unidad, minimo) VALUES ('Azúcar común', 25, 'kg', 8)")
         cursor.execute("INSERT INTO recetas (producto, costo_produccion, precio_venta) VALUES ('Docena de Medialunas', 4500, 9500)")
-        cursor.execute("INSERT INTO recetas (producto, costo_produccion, precio_venta) VALUES ('Pan Casero x 1kg', 1200, 3000)")
-        
-    cursor.execute("SELECT COUNT(*) FROM benchmarking_videos")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO benchmarking_videos (tipo, plataforma, creador, titulo_concepto, visualizaciones, analisis_rendimiento, link_video) VALUES ('competencia', 'Instagram', 'PanaderiaViral_BA', 'Proceso ASMR de facturas de manteca crujientes', 145000, 'Generó muchísima interacción en comentarios por el sonido directo de la masa crujiente.', 'https://www.instagram.com')")
-        cursor.execute("INSERT INTO benchmarking_videos (tipo, plataforma, creador, titulo_concepto, visualizaciones, analisis_rendimiento, link_video) VALUES ('competencia', 'TikTok', 'RecetasFacilesArg', 'Cómo hacer pan casero económico en 15 minutos', 320000, 'Apeló al ahorro y la economía doméstica actual. Alto índice de guardados.', 'https://www.tiktok.com')")
-        cursor.execute("INSERT INTO benchmarking_videos (tipo, plataforma, creador, titulo_concepto, visualizaciones, analisis_rendimiento, link_video) VALUES ('propio', 'Instagram', 'pancanela.arg', 'Sorteo docena de medialunas por el día del amigo', 1800, 'Buen caudal de comentarios etiquetando amigos, pero bajo alcance orgánico fuera de seguidores.', 'https://www.instagram.com/pancanela.arg')")
 
     conn.commit()
     conn.close()
@@ -79,7 +78,7 @@ HTML_TEMPLATE = '''
             </div>
             <div class="flex flex-wrap gap-1 bg-[#F2F1EC] p-1 rounded-lg border border-[#E5E5EA]">
                 <a href="/?tab=dashboard" class="px-4 py-1.5 rounded-md text-xs font-semibold transition {{ 'bg-white text-[#1C1C1E] shadow-sm' if tab == 'dashboard' else 'text-[#636366] hover:text-[#1C1C1E]' }}">Dashboard Analítico</a>
-                <a href="/?tab=finanzas" class="px-4 py-1.5 rounded-md text-xs font-semibold transition {{ 'bg-white text-[#1C1C1E] shadow-sm' if tab == 'finanzas' else 'text-[#636366] hover:text-[#1C1C1E]' }}">Caja & Márgenes</a>
+                <a href="/?tab=finanzas" class="px-4 py-1.5 rounded-md text-xs font-semibold transition {{ 'bg-white text-[#1C1C1E] shadow-sm' if tab == 'finanzas' else 'text-[#636366] hover:text-[#1C1C1E]' }}">Caja & Jornada</a>
                 <a href="/?tab=stock" class="px-4 py-1.5 rounded-md text-xs font-semibold transition {{ 'bg-white text-[#1C1C1E] shadow-sm' if tab == 'stock' else 'text-[#636366] hover:text-[#1C1C1E]' }}">Insumos & Stock</a>
                 <a href="/?tab=redes" class="px-4 py-1.5 rounded-md text-xs font-semibold transition {{ 'bg-white text-[#1C1C1E] shadow-sm' if tab == 'redes' else 'text-[#636366] hover:text-[#1C1C1E]' }}">Redes Ancladas</a>
             </div>
@@ -90,23 +89,47 @@ HTML_TEMPLATE = '''
         
         <!-- ================= PESTAÑA: DASHBOARD ================= -->
         {% if tab == 'dashboard' %}
-        <div class="mb-8">
-            <h2 class="text-2xl font-bold tracking-tight text-[#1C1C1E]">Panel de Rendimiento Global</h2>
-            <p class="text-sm text-[#636366] mt-1">Visualización analítica y diagnóstico automatizado para la toma de decisiones gerenciales.</p>
+        <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h2 class="text-2xl font-bold tracking-tight text-[#1C1C1E]">Panel de Rendimiento Global</h2>
+                <p class="text-sm text-[#636366] mt-1">Monitoreo en tiempo real de ventas, efectivo y transferencias.</p>
+            </div>
+            <div class="bg-white border border-[#E5E5EA] px-4 py-2 rounded-xl shadow-sm flex items-center gap-3">
+                <span class="w-3 h-3 rounded-full {{ 'bg-green-500 animate-pulse' if jornada_abierta else 'bg-red-400' }}"></span>
+                <span class="text-xs font-bold uppercase tracking-wider text-[#1C1C1E]">
+                    Estado Día: {{ 'JORNADA ABIERTA' if jornada_abierta else 'JORNADA CERRADA' }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Métricas del Día en Tiempo Real -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl border border-[#E5E5EA] shadow-sm">
+                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Venta Total de Hoy</p>
+                <p class="text-3xl font-extrabold text-[#1C1C1E] mt-2">${{ ventas_hoy_total }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl border border-[#E5E5EA] shadow-sm">
+                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Hoy en Efectivo</p>
+                <p class="text-3xl font-extrabold text-green-600 mt-2">${{ ventas_hoy_efectivo }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl border border-[#E5E5EA] shadow-sm">
+                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Hoy en Transferencia</p>
+                <p class="text-3xl font-extrabold text-blue-600 mt-2">${{ ventas_hoy_transferencia }}</p>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="bg-white p-6 rounded-xl border border-[#E5E5EA] shadow-sm">
-                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Total Ingresos Registrados</p>
-                <p class="text-3xl font-extrabold text-[#1C1C1E] mt-2">${{ total_ingresos }}</p>
+                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Acumulado Ingresos</p>
+                <p class="text-2xl font-extrabold text-[#1C1C1E] mt-2">${{ total_ingresos }}</p>
             </div>
             <div class="bg-white p-6 rounded-xl border border-[#E5E5EA] shadow-sm">
-                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Total Gastos</p>
-                <p class="text-3xl font-extrabold text-[#1C1C1E] mt-2">${{ total_gastos }}</p>
+                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Acumulado Gastos</p>
+                <p class="text-2xl font-extrabold text-[#1C1C1E] mt-2">${{ total_gastos }}</p>
             </div>
             <div class="bg-white p-6 rounded-xl border border-[#E5E5EA] shadow-sm">
-                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Balance de Caja Neto</p>
-                <p class="text-3xl font-extrabold text-[#1C1C1E] mt-2">${{ balance }}</p>
+                <p class="text-xs font-semibold tracking-wider text-[#636366] uppercase">Balance Neto</p>
+                <p class="text-2xl font-extrabold text-[#1C1C1E] mt-2">${{ balance }}</p>
             </div>
         </div>
 
@@ -119,9 +142,9 @@ HTML_TEMPLATE = '''
                     </div>
                 </div>
                 <div class="border-t border-[#E5E5EA] pt-4">
-                    <label class="text-xs text-[#636366] font-medium mb-2 block">Consultas sobre finanzas o stock:</label>
+                    <label class="text-xs text-[#636366] font-medium mb-2 block">Consultas sobre finanzas:</label>
                     <div class="flex gap-2">
-                        <input type="text" id="inputFinanzas" placeholder="Ej: ¿Cómo reduzco el costo de producción?" class="flex-1 bg-[#F9F8F6] border border-[#D1D1D6] rounded-lg px-3 py-2 text-xs text-[#1C1C1E] outline-none">
+                        <input type="text" id="inputFinanzas" placeholder="Ej: ¿Cómo optimizo mis costos?" class="flex-1 bg-[#F9F8F6] border border-[#D1D1D6] rounded-lg px-3 py-2 text-xs text-[#1C1C1E] outline-none">
                         <button onclick="preguntarIA('inputFinanzas', 'respuestaFinanzas')" class="bg-[#1C1C1E] hover:bg-[#3A3A3C] text-white font-medium py-2 px-4 rounded-lg text-xs transition">Consultar</button>
                     </div>
                     <div id="respuestaFinanzas" class="mt-3 text-xs text-[#3A3A3C] bg-[#F9F8F6] p-4 rounded-lg hidden border border-[#E5E5EA]"></div>
@@ -138,7 +161,7 @@ HTML_TEMPLATE = '''
                 <div class="border-t border-[#E5E5EA] pt-4">
                     <label class="text-xs text-[#636366] font-medium mb-2 block">Consultas sobre marketing digital:</label>
                     <div class="flex gap-2">
-                        <input type="text" id="inputRedes" placeholder="Ej: ¿Cómo subir ventas usando Instagram?" class="flex-1 bg-[#F9F8F6] border border-[#D1D1D6] rounded-lg px-3 py-2 text-xs text-[#1C1C1E] outline-none">
+                        <input type="text" id="inputRedes" placeholder="Ej: Ideas de contenido para Instagram" class="flex-1 bg-[#F9F8F6] border border-[#D1D1D6] rounded-lg px-3 py-2 text-xs text-[#1C1C1E] outline-none">
                         <button onclick="preguntarIA('inputRedes', 'respuestaRedes')" class="bg-[#1C1C1E] hover:bg-[#3A3A3C] text-white font-medium py-2 px-4 rounded-lg text-xs transition">Consultar</button>
                     </div>
                     <div id="respuestaRedes" class="mt-3 text-xs text-[#3A3A3C] bg-[#F9F8F6] p-4 rounded-lg hidden border border-[#E5E5EA]"></div>
@@ -198,11 +221,20 @@ HTML_TEMPLATE = '''
             }
         </script>
         
-        <!-- ================= PESTAÑA: FINANZAS (CAJA & MÁRGENES) ================= -->
+        <!-- ================= PESTAÑA: FINANZAS & JORNADA ================= -->
         {% elif tab == 'finanzas' %}
-        <div class="mb-8">
-            <h2 class="text-2xl font-bold tracking-tight text-[#1C1C1E]">Caja & Márgenes de Producción</h2>
-            <p class="text-sm text-[#636366] mt-1">Registro de movimientos diarios de caja y cálculo de rentabilidad por producto.</p>
+        <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h2 class="text-2xl font-bold tracking-tight text-[#1C1C1E]">Caja & Control de Jornada</h2>
+                <p class="text-sm text-[#636366] mt-1">Apertura y cierre de día, registro de ingresos/gastos por efectivo o transferencia.</p>
+            </div>
+            <div class="flex gap-2">
+                {% if not jornada_abierta %}
+                <a href="/abrir_jornada" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow-sm">🔓 Abrir el Día</a>
+                {% else %}
+                <a href="/cerrar_jornada" onclick="return confirm('¿Seguro que deseas cerrar el día? Se guardará el consolidado de la jornada.');" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shadow-sm">🔒 Cerrar el Día</a>
+                {% endif %}
+            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
@@ -225,8 +257,15 @@ HTML_TEMPLATE = '''
                         </div>
                     </div>
                     <div>
+                        <label class="text-xs text-[#636366] font-medium block mb-1">Método de Pago</label>
+                        <select name="metodo" class="w-full bg-[#F9F8F6] border border-[#D1D1D6] rounded-lg px-3 py-2 text-xs text-[#1C1C1E] outline-none">
+                            <option value="Efectivo" {{ 'selected' if edit_caja and edit_caja[5] == 'Efectivo' else '' }}>Efectivo</option>
+                            <option value="Transferencia" {{ 'selected' if edit_caja and edit_caja[5] == 'Transferencia' else '' }}>Transferencia</option>
+                        </select>
+                    </div>
+                    <div>
                         <label class="text-xs text-[#636366] font-medium block mb-1">Descripción</label>
-                        <input type="text" name="descripcion" value="{{ edit_caja[3] if edit_caja else '' }}" placeholder="Ej: Venta por mayor" required class="w-full bg-[#F9F8F6] border border-[#D1D1D6] rounded-lg px-3 py-2 text-xs text-[#1C1C1E] outline-none">
+                        <input type="text" name="descripcion" value="{{ edit_caja[3] if edit_caja else '' }}" placeholder="Ej: Venta mostrador" required class="w-full bg-[#F9F8F6] border border-[#D1D1D6] rounded-lg px-3 py-2 text-xs text-[#1C1C1E] outline-none">
                     </div>
                     <div>
                         <label class="text-xs text-[#636366] font-medium block mb-1">Monto ($)</label>
@@ -242,13 +281,14 @@ HTML_TEMPLATE = '''
             </div>
 
             <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-[#E5E5EA] shadow-sm">
-                <h3 class="text-sm font-bold text-[#1C1C1E] mb-4 uppercase tracking-wider">Historial de Caja</h3>
+                <h3 class="text-sm font-bold text-[#1C1C1E] mb-4 uppercase tracking-wider">Historial de Caja & Medios de Pago</h3>
                 <div class="overflow-x-auto max-h-96 overflow-y-auto">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-[#F9F8F6] text-[#636366] uppercase text-[10px]">
                             <tr>
                                 <th class="p-2">Fecha</th>
                                 <th class="p-2">Tipo</th>
+                                <th class="p-2">Método</th>
                                 <th class="p-2">Descripción</th>
                                 <th class="p-2 text-right">Monto</th>
                                 <th class="p-2 text-center">Acciones</th>
@@ -259,6 +299,7 @@ HTML_TEMPLATE = '''
                             <tr class="hover:bg-[#F9F8F6]">
                                 <td class="p-2 text-[#636366]">{{ m[1] }}</td>
                                 <td class="p-2 font-semibold {{ 'text-green-600' if m[2] == 'Ingreso' else 'text-red-600' }}">{{ m[2] }}</td>
+                                <td class="p-2 font-medium text-blue-600">{{ m[5] if m[5] else 'Efectivo' }}</td>
                                 <td class="p-2 text-[#1C1C1E]">{{ m[3] }}</td>
                                 <td class="p-2 text-right font-bold text-[#1C1C1E]">${{ m[4] }}</td>
                                 <td class="p-2 text-center space-x-2">
@@ -440,7 +481,22 @@ def index():
     conn = sqlite3.connect('pancanela.db')
     cursor = conn.cursor()
     
-    # Datos Dashboard
+    # Estado de Jornada
+    cursor.execute("SELECT COUNT(*) FROM jornadas WHERE estado='Abierta'")
+    jornada_abierta = cursor.fetchone()[0] > 0
+
+    # Calcular ventas de hoy en tiempo real (Fecha actual del sistema)
+    hoy_str = datetime.now().strftime('%Y-%m-%d')
+    
+    cursor.execute("SELECT SUM(monto) FROM caja WHERE tipo='Ingreso' AND fecha=? AND (metodo='Efectivo' OR metodo IS NULL)", (hoy_str,))
+    ventas_hoy_efectivo = cursor.fetchone()[0] or 0.0
+
+    cursor.execute("SELECT SUM(monto) FROM caja WHERE tipo='Ingreso' AND fecha=? AND metodo='Transferencia'", (hoy_str,))
+    ventas_hoy_transferencia = cursor.fetchone()[0] or 0.0
+
+    ventas_hoy_total = ventas_hoy_efectivo + ventas_hoy_transferencia
+
+    # Totales generales Dashboard
     cursor.execute("SELECT SUM(monto) FROM caja WHERE tipo='Ingreso'")
     total_ingresos = cursor.fetchone()[0] or 0.0
     cursor.execute("SELECT SUM(monto) FROM caja WHERE tipo='Gasto'")
@@ -463,11 +519,8 @@ def index():
     ig_seguidores = [ig_data.get(f, 0) for f in fechas_redes]
     tk_seguidores = [tk_data.get(f, 0) for f in fechas_redes]
 
-    cursor.execute("SELECT id, tipo, plataforma, creador, visualizaciones, titulo_concepto, analisis_rendimiento, link_video FROM benchmarking_videos")
-    videos = cursor.fetchall()
-
     # Listados
-    cursor.execute("SELECT id, fecha, tipo, descripcion, monto FROM caja ORDER BY id DESC")
+    cursor.execute("SELECT id, fecha, tipo, descripcion, monto, metodo FROM caja ORDER BY id DESC")
     lista_caja = cursor.fetchall()
 
     cursor.execute("SELECT id, insumo, cantidad, unidad, minimo FROM stock")
@@ -476,10 +529,9 @@ def index():
     cursor.execute("SELECT id, fecha, plataforma, seguidores, interaccion FROM redes ORDER BY id DESC")
     lista_redes = cursor.fetchall()
 
-    # Ítems seleccionados para editar
     edit_caja = None
     if edit_caja_id:
-        cursor.execute("SELECT id, fecha, tipo, descripcion, monto FROM caja WHERE id=?", (edit_caja_id,))
+        cursor.execute("SELECT id, fecha, tipo, descripcion, monto, metodo FROM caja WHERE id=?", (edit_caja_id,))
         edit_caja = cursor.fetchone()
 
     edit_stock = None
@@ -495,11 +547,46 @@ def index():
     conn.close()
 
     return render_template_string(HTML_TEMPLATE, tab=tab, 
+                                  jornada_abierta=jornada_abierta,
+                                  ventas_hoy_total=ventas_hoy_total, ventas_hoy_efectivo=ventas_hoy_efectivo, ventas_hoy_transferencia=ventas_hoy_transferencia,
                                   total_ingresos=total_ingresos, total_gastos=total_gastos, balance=balance,
                                   fechas_caja=json.dumps(fechas_caja), ingresos_caja=json.dumps(ingresos_caja), gastos_caja=json.dumps(gastos_caja),
                                   fechas_redes=json.dumps(fechas_redes), ig_seguidores=json.dumps(ig_seguidores), tk_seguidores=json.dumps(tk_seguidores),
-                                  videos=videos, lista_caja=lista_caja, lista_stock=lista_stock, lista_redes=lista_redes,
+                                  lista_caja=lista_caja, lista_stock=lista_stock, lista_redes=lista_redes,
                                   edit_caja=edit_caja, edit_stock=edit_stock, edit_redes=edit_redes)
+
+@app.route('/abrir_jornada')
+def abrir_jornada():
+    hoy_str = datetime.now().strftime('%Y-%m-%d')
+    conn = sqlite3.connect('pancanela.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO jornadas (fecha, estado, efectivo_ventas, transferencia_ventas, total_gastos) VALUES (?, 'Abierta', 0, 0, 0)", (hoy_str,))
+    conn.commit()
+    conn.close()
+    return redirect('/?tab=finanzas')
+
+@app.route('/cerrar_jornada')
+def cerrar_jornada():
+    hoy_str = datetime.now().strftime('%Y-%m-%d')
+    conn = sqlite3.connect('pancanela.db')
+    cursor = conn.cursor()
+    
+    # Calcular totales del día de hoy
+    cursor.execute("SELECT SUM(monto) FROM caja WHERE tipo='Ingreso' AND fecha=? AND (metodo='Efectivo' OR metodo IS NULL)", (hoy_str,))
+    efectivo = cursor.fetchone()[0] or 0.0
+    
+    cursor.execute("SELECT SUM(monto) FROM caja WHERE tipo='Ingreso' AND fecha=? AND metodo='Transferencia'", (hoy_str,))
+    transferencia = cursor.fetchone()[0] or 0.0
+
+    cursor.execute("SELECT SUM(monto) FROM caja WHERE tipo='Gasto' AND fecha=?", (hoy_str,))
+    gastos = cursor.fetchone()[0] or 0.0
+
+    # Actualizar jornada a Cerrada con sus totales
+    cursor.execute("UPDATE jornadas SET estado='Cerrada', efectivo_ventas=?, transferencia_ventas=?, total_gastos=? WHERE fecha=? AND estado='Abierta'", 
+                   (efectivo, transferencia, gastos, hoy_str))
+    conn.commit()
+    conn.close()
+    return redirect('/?tab=dashboard')
 
 @app.route('/agregar_caja', methods=['POST'])
 def agregar_caja():
@@ -507,9 +594,10 @@ def agregar_caja():
     tipo = request.form['tipo']
     descripcion = request.form['descripcion']
     monto = float(request.form['monto'])
+    metodo = request.form['metodo']
     conn = sqlite3.connect('pancanela.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto) VALUES (?, ?, ?, ?)", (fecha, tipo, descripcion, monto))
+    cursor.execute("INSERT INTO caja (fecha, tipo, descripcion, monto, metodo) VALUES (?, ?, ?, ?, ?)", (fecha, tipo, descripcion, monto, metodo))
     conn.commit()
     conn.close()
     return redirect('/?tab=finanzas')
@@ -520,9 +608,10 @@ def editar_caja(id):
     tipo = request.form['tipo']
     descripcion = request.form['descripcion']
     monto = float(request.form['monto'])
+    metodo = request.form['metodo']
     conn = sqlite3.connect('pancanela.db')
     cursor = conn.cursor()
-    cursor.execute("UPDATE caja SET fecha=?, tipo=?, descripcion=?, monto=? WHERE id=?", (fecha, tipo, descripcion, monto, id))
+    cursor.execute("UPDATE caja SET fecha=?, tipo=?, descripcion=?, monto=?, metodo=? WHERE id=?", (fecha, tipo, descripcion, monto, metodo, id))
     conn.commit()
     conn.close()
     return redirect('/?tab=finanzas')
